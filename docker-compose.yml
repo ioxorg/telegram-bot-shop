@@ -1,0 +1,8 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # SQLite database — persists across rebuilds and restarts
+      - ./data:/app/data
