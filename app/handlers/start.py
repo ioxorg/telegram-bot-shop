@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, User
 from app.db import get_db
 from app.i18n import t
 from app.keyboards import language_picker, main_menu, phone_request_keyboard
+from app.repo.bot_settings import get_setting
 from app.repo.users import get_phone_number, set_user_language, upsert_user
 from app.states import VerificationStates
 from configs.configs import settings
@@ -49,6 +50,7 @@ async def cmd_start(message: Message, bot: Bot, state: FSMContext, lang: str) ->
     async with get_db() as db:
         is_new = await upsert_user(db, message.from_user)
         phone = await get_phone_number(db, message.from_user.id)
+        verify_enabled = await get_setting(db, "phone_verification_enabled") == "1"
 
     await _dismiss_reply_keyboard(message)
     await _send_sticker(message)
@@ -62,8 +64,7 @@ async def cmd_start(message: Message, bot: Bot, state: FSMContext, lang: str) ->
                 pass
         return
 
-    # Existing user — gate on phone verification (skip for admin)
-    if not phone and not is_admin:
+    if not phone and not is_admin and verify_enabled:
         await _ask_for_phone(message, state, lang)
         return
 
@@ -87,11 +88,12 @@ async def cb_lang_set(callback: CallbackQuery, state: FSMContext, lang: str) -> 
     async with get_db() as db:
         await set_user_language(db, callback.from_user.id, new_lang)
         phone = await get_phone_number(db, callback.from_user.id)
+        verify_enabled = await get_setting(db, "phone_verification_enabled") == "1"
 
     await callback.answer()
     await _send_sticker(callback.message)
 
-    if not phone and not is_admin:
+    if not phone and not is_admin and verify_enabled:
         await _ask_for_phone(callback.message, state, new_lang)
         logger.info("User %d set language to %s — awaiting phone", callback.from_user.id, new_lang)
         return

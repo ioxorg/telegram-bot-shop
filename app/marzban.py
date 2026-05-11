@@ -77,10 +77,26 @@ async def _authorized_post(
 
 
 def _sanitize_username(name: str) -> str:
-    """Convert a user-provided config name into a valid Marzban username."""
-    s = re.sub(r"[^a-zA-Z0-9_]", "_", name.strip())
-    s = re.sub(r"_+", "_", s).strip("_")
-    return s[:32] if s else "user"
+    """Convert a user-provided config name into a valid Marzban username.
+
+    Raises ValueError with an i18n key if the name contains non-English
+    characters or the sanitized result is shorter than 3 characters.
+    """
+    if re.search(r"[^a-zA-Z0-9_]", name.strip()):
+        raise ValueError("name_english_only")
+    s = re.sub(r"_+", "_", name.strip()).strip("_")
+    if len(s) < 3:
+        raise ValueError("name_too_short")
+    return s[:32]
+
+
+def validate_config_name(name: str) -> str | None:
+    """Return an i18n error key if the name is invalid, or None if it's fine."""
+    try:
+        _sanitize_username(name)
+        return None
+    except ValueError as exc:
+        return str(exc)
 
 
 async def _user_exists(client: httpx.AsyncClient, username: str) -> bool:

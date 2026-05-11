@@ -29,6 +29,13 @@ _USER_COMMANDS = [
     BotCommand(command="cancel", description="Cancel current action"),
 ]
 
+_USER_COMMANDS_FA = [
+    BotCommand(command="start", description="منوی اصلی"),
+    BotCommand(command="buy", description="مشاهده پلن‌ها و خرید اشتراک"),
+    BotCommand(command="my_subs", description="اشتراک‌های فعال من"),
+    BotCommand(command="cancel", description="لغو عملیات جاری"),
+]
+
 _ADMIN_COMMANDS = _USER_COMMANDS + [
     BotCommand(command="pending", description="Pending orders awaiting review"),
     BotCommand(command="stats", description="Sales statistics"),
@@ -37,12 +44,28 @@ _ADMIN_COMMANDS = _USER_COMMANDS + [
     BotCommand(command="payment", description="Payment settings"),
 ]
 
+_ADMIN_COMMANDS_FA = _USER_COMMANDS_FA + [
+    BotCommand(command="pending", description="سفارش‌های در انتظار بررسی"),
+    BotCommand(command="stats", description="آمار فروش"),
+    BotCommand(command="failed_orders", description="سفارش‌های ناموفق Marzban"),
+    BotCommand(command="plans", description="مدیریت پلن‌ها"),
+    BotCommand(command="payment", description="تنظیمات پرداخت"),
+]
+
 
 async def _setup_menu(bot: Bot) -> None:
-    await bot.set_my_commands(_USER_COMMANDS, scope=BotCommandScopeDefault())
+    # Persian is the default (shown when no language-specific match exists).
+    # English is registered as the "en" locale for users with an English Telegram client.
+    await bot.set_my_commands(_USER_COMMANDS_FA, scope=BotCommandScopeDefault())
+    await bot.set_my_commands(_USER_COMMANDS, scope=BotCommandScopeDefault(), language_code="en")
+    await bot.set_my_commands(
+        _ADMIN_COMMANDS_FA,
+        scope=BotCommandScopeChat(chat_id=settings.admin_telegram_id),
+    )
     await bot.set_my_commands(
         _ADMIN_COMMANDS,
         scope=BotCommandScopeChat(chat_id=settings.admin_telegram_id),
+        language_code="en",
     )
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     logger.info("Bot menu and commands configured")
