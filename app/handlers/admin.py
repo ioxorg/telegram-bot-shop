@@ -27,6 +27,7 @@ from app.repo.bot_settings import (
     get_setting,
     set_setting,
     toggle_payment_enabled,
+    toggle_phone_verification,
     toggle_stars_payment,
     toggle_ton_payment,
 )
@@ -328,28 +329,55 @@ async def cmd_failed_orders(message: Message) -> None:
 
 # ── Admin panel ──────────────────────────────────────────────────────────────
 
-@router.callback_query(lambda c: c.data == "menu:admin")
-async def cb_admin_panel(callback: CallbackQuery) -> None:
-    if not _is_admin(callback.from_user.id):
-        await callback.answer("Access denied.", show_alert=True)
-        return
+async def _show_admin_panel(target: Message | CallbackQuery) -> None:
+    async with get_db() as db:
+        verify_on = await get_setting(db, "phone_verification_enabled") == "1"
 
+    verify_label = (
+        f"{'🟢' if verify_on else '🔴'} Phone Verification: "
+        f"{'ON → Disable' if verify_on else 'OFF → Enable'}"
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Manage Plans", callback_data="aplan:list")],
         [InlineKeyboardButton(text="💳 Payment Settings", callback_data="apay:show")],
+        [InlineKeyboardButton(text=verify_label, callback_data="admin:toggle_verify")],
         [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:back")],
     ])
-    await callback.message.edit_text(
+    text = (
         "<b>Admin panel</b>\n\n"
         "/pending — list pending receipts\n"
         "/stats — sales statistics\n"
         "/failed_orders — failed Marzban orders\n"
         "/plans — manage plans\n"
-        "/payment — payment settings",
-        parse_mode="HTML",
-        reply_markup=kb,
+        "/payment — payment settings"
     )
-    await callback.answer()
+    if isinstance(target, CallbackQuery):
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await target.answer()
+    else:
+        await target.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(lambda c: c.data == "menu:admin")
+async def cb_admin_panel(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    await _show_admin_panel(callback)
+
+
+@router.callback_query(lambda c: c.data == "admin:toggle_verify")
+async def cb_toggle_verification(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    async with get_db() as db:
+        now_on = await toggle_phone_verification(db)
+    await callback.answer(
+        f"Phone verification {'enabled' if now_on else 'disabled'}.", show_alert=True
+    )
+    await _show_admin_panel(callback)
+    logger.info("Admin %s phone verification", "enabled" if now_on else "disabled")
 
 
 # ── Plan management ──────────────────────────────────────────────────────────

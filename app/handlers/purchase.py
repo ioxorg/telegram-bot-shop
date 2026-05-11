@@ -12,7 +12,7 @@ from aiogram.types import CallbackQuery, LabeledPrice, Message, PreCheckoutQuery
 from app.db import get_db
 from app.i18n import t
 from app.keyboards import admin_review, payment_method_keyboard
-from app.marzban import MarzbanError, check_username_available, create_subscription
+from app.marzban import MarzbanError, check_username_available, create_subscription, validate_config_name
 from app.repo.bot_settings import get_active_payment_methods, get_setting
 from app.repo.orders import (
     approve_order,
@@ -167,6 +167,11 @@ async def handle_config_name(message: Message, state: FSMContext, lang: str) -> 
     name = message.text.strip()
     if len(name) > _NAME_MAX:
         await message.answer(t("name_too_long", lang))
+        return
+
+    error_key = validate_config_name(name)
+    if error_key:
+        await message.answer(t(error_key, lang), parse_mode="HTML")
         return
 
     try:

@@ -13,6 +13,7 @@ _DEFAULTS: dict[str, str] = {
     "ton_payment_enabled": "0",
     "ton_wallet_address": "",
     "ton_toman_per_ton": "50000000",
+    "phone_verification_enabled": "1",
 }
 
 _ALL_KEYS = ", ".join(f"'{k}'" for k in _DEFAULTS)
@@ -74,6 +75,10 @@ async def toggle_stars_payment(db: aiosqlite.Connection) -> bool:
 
 async def toggle_ton_payment(db: aiosqlite.Connection) -> bool:
     return await _toggle(db, "ton_payment_enabled")
+
+
+async def toggle_phone_verification(db: aiosqlite.Connection) -> bool:
+    return await _toggle(db, "phone_verification_enabled")
 
 
 async def seed_payment_settings(
