@@ -10,9 +10,8 @@ _DEFAULTS: dict[str, str] = {
     "card_payment_enabled": "1",
     "stars_payment_enabled": "0",
     "stars_toman_per_star": "1000",
-    "ton_payment_enabled": "0",
-    "ton_wallet_address": "",
-    "ton_toman_per_ton": "50000000",
+    "nowpayments_enabled": "0",
+    "usd_toman_rate": "600000",
     "phone_verification_enabled": "1",
 }
 
@@ -49,12 +48,15 @@ async def get_payment_settings(db: aiosqlite.Connection) -> dict[str, str]:
     return result
 
 
-async def get_active_payment_methods(db: aiosqlite.Connection) -> dict[str, bool]:
+async def get_active_payment_methods(
+    db: aiosqlite.Connection,
+    nowpayments_api_key: str = "",
+) -> dict[str, bool]:
     ps = await get_payment_settings(db)
     return {
         "card": ps["card_payment_enabled"] == "1",
         "stars": ps["stars_payment_enabled"] == "1",
-        "ton": ps["ton_payment_enabled"] == "1",
+        "nowpayments": ps["nowpayments_enabled"] == "1" and bool(nowpayments_api_key),
     }
 
 
@@ -73,8 +75,8 @@ async def toggle_stars_payment(db: aiosqlite.Connection) -> bool:
     return await _toggle(db, "stars_payment_enabled")
 
 
-async def toggle_ton_payment(db: aiosqlite.Connection) -> bool:
-    return await _toggle(db, "ton_payment_enabled")
+async def toggle_nowpayments(db: aiosqlite.Connection) -> bool:
+    return await _toggle(db, "nowpayments_enabled")
 
 
 async def toggle_phone_verification(db: aiosqlite.Connection) -> bool:

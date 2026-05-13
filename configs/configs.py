@@ -30,6 +30,11 @@ class Settings:
     support_url: str
     welcome_sticker_id: str  # optional — empty string = no sticker
 
+    # NOWPayments — optional, empty string = disabled
+    nowpayments_api_key: str
+    nowpayments_email: str
+    nowpayments_password: str
+
     # Proxy — socks5h://user:pass@host:port (empty = direct)
     telegram_proxy_url: str
 
@@ -61,6 +66,9 @@ def load_settings() -> Settings:
         ),
         support_url=os.getenv("SUPPORT_URL", ""),
         welcome_sticker_id=os.getenv("WELCOME_STICKER_ID", ""),
+        nowpayments_api_key=os.getenv("NOWPAYMENTS_API_KEY", ""),
+        nowpayments_email=os.getenv("NOWPAYMENTS_EMAIL", ""),
+        nowpayments_password=os.getenv("NOWPAYMENTS_PASSWORD", ""),
         telegram_proxy_url=os.getenv("TELEGRAM_PROXY_URL", ""),
         db_path=os.getenv("DB_PATH", "data/shop.db"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),

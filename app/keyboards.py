@@ -111,29 +111,37 @@ def payment_method_keyboard(plan_id: int, lang: str, methods: dict[str, bool]) -
         rows.append([InlineKeyboardButton(text=t("btn_pay_card", lang), callback_data=f"plan:method:card:{plan_id}")])
     if methods.get("stars"):
         rows.append([InlineKeyboardButton(text=t("btn_pay_stars", lang), callback_data=f"plan:method:stars:{plan_id}")])
-    if methods.get("ton"):
-        rows.append([InlineKeyboardButton(text=t("btn_pay_ton", lang), callback_data=f"plan:method:ton:{plan_id}")])
+    if methods.get("nowpayments"):
+        rows.append([InlineKeyboardButton(text=t("btn_pay_crypto", lang), callback_data=f"plan:method:nowpayments:{plan_id}")])
     rows.append([InlineKeyboardButton(text=t("btn_back", lang), callback_data="menu:buy")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def admin_payment_settings(ps: dict) -> InlineKeyboardMarkup:
-    card = ps.get("card_number") or "—"
-    bank = ps.get("bank_name") or "—"
-    holder = ps.get("card_holder_name") or "—"
-    currency = ps.get("currency_label") or "—"
-    card_on = ps.get("card_payment_enabled", "1") == "1"
+def nowpay_keyboard(invoice_url: str, order_id: int, lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("nowpay_open_btn", lang), url=invoice_url)],
+        [InlineKeyboardButton(
+            text=t("nowpay_check_btn", lang),
+            callback_data=f"nowpay:check:{order_id}",
+        )],
+    ])
+
+
+def admin_payment_settings(ps: dict, nowpayments_key_set: bool = False) -> InlineKeyboardMarkup:
+    card_on  = ps.get("card_payment_enabled", "1") == "1"
     stars_on = ps.get("stars_payment_enabled", "0") == "1"
-    ton_on = ps.get("ton_payment_enabled", "0") == "1"
+    np_on    = ps.get("nowpayments_enabled", "0") == "1"
+    card     = ps.get("card_number") or "—"
+    bank     = ps.get("bank_name") or "—"
+    holder   = ps.get("card_holder_name") or "—"
+    currency = ps.get("currency_label") or "—"
     stars_rate = ps.get("stars_toman_per_star", "1000")
-    ton_wallet = ps.get("ton_wallet_address") or "Not set"
-    ton_rate = ps.get("ton_toman_per_ton", "50000000")
+    usd_rate   = ps.get("usd_toman_rate", "600000")
 
     def _tog(label: str, on: bool) -> str:
         return f"{'🟢' if on else '🔴'} {label}: {'ON → Disable' if on else 'OFF → Enable'}"
 
-    wallet_short = ton_wallet[:22] + ("…" if len(ton_wallet) > 22 else "")
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = [
         # ── Card ──
         [InlineKeyboardButton(text=_tog("Card", card_on), callback_data="apay:toggle_enabled")],
         [InlineKeyboardButton(text=f"💳 {card}", callback_data="apay:edit:card_number")],
@@ -143,9 +151,12 @@ def admin_payment_settings(ps: dict) -> InlineKeyboardMarkup:
         # ── Stars ──
         [InlineKeyboardButton(text=_tog("⭐ Stars", stars_on), callback_data="apay:toggle_stars")],
         [InlineKeyboardButton(text=f"⭐ Rate: {int(stars_rate):,} toman / star", callback_data="apay:edit:stars_toman_per_star")],
-        # ── TON ──
-        [InlineKeyboardButton(text=_tog("💎 TON", ton_on), callback_data="apay:toggle_ton")],
-        [InlineKeyboardButton(text=f"💎 Wallet: {wallet_short}", callback_data="apay:edit:ton_wallet_address")],
-        [InlineKeyboardButton(text=f"💱 Rate: {int(ton_rate):,} toman / TON", callback_data="apay:edit:ton_toman_per_ton")],
+        # ── NOWPayments (crypto) ──
+        [InlineKeyboardButton(
+            text=_tog("💎 Crypto (NOWPayments)", np_on) + ("" if nowpayments_key_set else " ⚠️ no key"),
+            callback_data="apay:toggle_nowpayments",
+        )],
+        [InlineKeyboardButton(text=f"💱 USD rate: {int(usd_rate):,} toman / $1", callback_data="apay:edit:usd_toman_rate")],
         [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:admin")],
-    ])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)

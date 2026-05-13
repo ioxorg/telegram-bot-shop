@@ -26,6 +26,14 @@ async def set_config_name(db: aiosqlite.Connection, order_id: int, config_name: 
     await db.commit()
 
 
+async def set_nowpayments_id(db: aiosqlite.Connection, order_id: int, payment_id: str) -> None:
+    await db.execute(
+        "UPDATE orders SET nowpayments_id = ? WHERE id = ?",
+        (payment_id, order_id),
+    )
+    await db.commit()
+
+
 _PLAN_TITLE_SQL = """
     CASE WHEN p.data_limit_gb = 0 THEN '∞ GB' ELSE CAST(p.data_limit_gb AS TEXT) || ' GB' END
     || ' – ' || CAST(p.duration_days AS TEXT) || ' Days'

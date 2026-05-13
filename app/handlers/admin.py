@@ -26,10 +26,10 @@ from app.repo.bot_settings import (
     get_payment_settings,
     get_setting,
     set_setting,
+    toggle_nowpayments,
     toggle_payment_enabled,
     toggle_phone_verification,
     toggle_stars_payment,
-    toggle_ton_payment,
 )
 from app.repo.plans import (
     create_plan,
@@ -579,23 +579,21 @@ async def handle_edit_plan(message: Message, state: FSMContext) -> None:
 # ── Payment settings management ──────────────────────────────────────────────
 
 _FIELD_LABELS = {
-    "card_number": "Card Number",
-    "bank_name": "Bank Name",
-    "card_holder_name": "Card Holder",
-    "currency_label": "Currency",
+    "card_number":        "Card Number",
+    "bank_name":          "Bank Name",
+    "card_holder_name":   "Card Holder",
+    "currency_label":     "Currency",
     "stars_toman_per_star": "Stars Rate (toman per 1 ⭐)",
-    "ton_wallet_address": "TON Wallet Address",
-    "ton_toman_per_ton": "TON Rate (toman per 1 TON)",
+    "usd_toman_rate":     "USD Rate (toman per $1)",
 }
 
 _FIELD_STATE = {
-    "card_number": AdminSettingsStates.editing_card_number,
-    "bank_name": AdminSettingsStates.editing_bank_name,
-    "card_holder_name": AdminSettingsStates.editing_card_holder,
-    "currency_label": AdminSettingsStates.editing_currency,
+    "card_number":        AdminSettingsStates.editing_card_number,
+    "bank_name":          AdminSettingsStates.editing_bank_name,
+    "card_holder_name":   AdminSettingsStates.editing_card_holder,
+    "currency_label":     AdminSettingsStates.editing_currency,
     "stars_toman_per_star": AdminSettingsStates.editing_stars_rate,
-    "ton_wallet_address": AdminSettingsStates.editing_ton_wallet,
-    "ton_toman_per_ton": AdminSettingsStates.editing_ton_rate,
+    "usd_toman_rate":     AdminSettingsStates.editing_usd_rate,
 }
 
 
@@ -606,21 +604,23 @@ def _status(enabled: bool) -> str:
 async def _show_payment_settings(target: Message | CallbackQuery) -> None:
     async with get_db() as db:
         ps = await get_payment_settings(db)
-    card_on = ps.get("card_payment_enabled", "1") == "1"
+    card_on  = ps.get("card_payment_enabled", "1") == "1"
     stars_on = ps.get("stars_payment_enabled", "0") == "1"
-    ton_on = ps.get("ton_payment_enabled", "0") == "1"
+    np_on    = ps.get("nowpayments_enabled", "0") == "1"
+    np_key   = bool(settings.nowpayments_api_key)
     text = (
         "<b>💳 Payment Settings</b>\n\n"
-        f"💳 Card:  {_status(card_on)}\n"
-        f"⭐ Stars: {_status(stars_on)} — {int(ps.get('stars_toman_per_star', '1000')):,} toman/star\n"
-        f"💎 TON:   {_status(ton_on)} — {int(ps.get('ton_toman_per_ton', '50000000')):,} toman/TON\n\n"
+        f"💳 Card:   {_status(card_on)}\n"
+        f"⭐ Stars:  {_status(stars_on)} — {int(ps.get('stars_toman_per_star', '1000')):,} toman/star\n"
+        f"💎 Crypto: {_status(np_on)} — $1 = {int(ps.get('usd_toman_rate', '600000')):,} toman"
+        + ("" if np_key else "  ⚠️ NOWPAYMENTS_API_KEY not set") + "\n\n"
         f"Card Number: <code>{ps['card_number'] or '—'}</code>\n"
         f"Bank: {ps['bank_name'] or '—'}\n"
         f"Holder: {ps['card_holder_name'] or '—'}\n"
         f"Currency: {ps['currency_label'] or '—'}\n\n"
         "Tap a button to toggle or edit."
     )
-    kb = admin_payment_settings(ps)
+    kb = admin_payment_settings(ps, nowpayments_key_set=np_key)
     if isinstance(target, CallbackQuery):
         await target.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
         await target.answer()
@@ -667,16 +667,21 @@ async def cb_payment_toggle_stars(callback: CallbackQuery) -> None:
     logger.info("Admin %s Stars payments", "enabled" if now_on else "disabled")
 
 
-@router.callback_query(lambda c: c.data == "apay:toggle_ton")
-async def cb_payment_toggle_ton(callback: CallbackQuery) -> None:
+@router.callback_query(lambda c: c.data == "apay:toggle_nowpayments")
+async def cb_payment_toggle_nowpayments(callback: CallbackQuery) -> None:
     if not _is_admin(callback.from_user.id):
         await callback.answer("Access denied.", show_alert=True)
         return
+    if not settings.nowpayments_api_key:
+        await callback.answer(
+            "Set NOWPAYMENTS_API_KEY in your .env first.", show_alert=True
+        )
+        return
     async with get_db() as db:
-        now_on = await toggle_ton_payment(db)
-    await callback.answer(f"TON payments {'enabled' if now_on else 'disabled'}.", show_alert=True)
+        now_on = await toggle_nowpayments(db)
+    await callback.answer(f"Crypto payments {'enabled' if now_on else 'disabled'}.", show_alert=True)
     await _show_payment_settings(callback)
-    logger.info("Admin %s TON payments", "enabled" if now_on else "disabled")
+    logger.info("Admin %s NOWPayments crypto", "enabled" if now_on else "disabled")
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("apay:edit:"))
@@ -729,7 +734,6 @@ async def _handle_settings_input(message: Message, state: FSMContext) -> None:
 @router.message(AdminSettingsStates.editing_card_holder, F.text)
 @router.message(AdminSettingsStates.editing_currency, F.text)
 @router.message(AdminSettingsStates.editing_stars_rate, F.text)
-@router.message(AdminSettingsStates.editing_ton_wallet, F.text)
-@router.message(AdminSettingsStates.editing_ton_rate, F.text)
+@router.message(AdminSettingsStates.editing_usd_rate, F.text)
 async def handle_settings_input(message: Message, state: FSMContext) -> None:
     await _handle_settings_input(message, state)
