@@ -21,8 +21,7 @@ class AdminSettingsStates(StatesGroup):
     editing_card_holder = State()
     editing_currency = State()
     editing_stars_rate = State()
-    editing_ton_wallet = State()
-    editing_ton_rate = State()
+    editing_usd_rate = State()
 
 
 class VerificationStates(StatesGroup):

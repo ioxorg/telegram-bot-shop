@@ -79,6 +79,7 @@ async def init_db() -> None:
             ("ALTER TABLE plans ADD COLUMN data_limit_gb_new INTEGER", "plans.data_limit_gb_new"),
             ("ALTER TABLE users ADD COLUMN phone_number TEXT", "users.phone_number"),
             ("ALTER TABLE orders ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'card'", "orders.payment_method"),
+            ("ALTER TABLE orders ADD COLUMN nowpayments_id TEXT", "orders.nowpayments_id"),
         ]:
             try:
                 await db.execute(migration_sql)
