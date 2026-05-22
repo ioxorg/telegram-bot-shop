@@ -26,3 +26,7 @@ class AdminSettingsStates(StatesGroup):
 
 class VerificationStates(StatesGroup):
     waiting_for_phone = State()
+
+
+class AdminForceJoinStates(StatesGroup):
+    waiting_for_channel = State()
