@@ -26,6 +26,7 @@ from app.repo.bot_settings import (
     get_payment_settings,
     get_setting,
     set_setting,
+    toggle_force_join,
     toggle_nowpayments,
     toggle_payment_enabled,
     toggle_phone_verification,
@@ -41,7 +42,7 @@ from app.repo.plans import (
     update_plan,
 )
 from app.repo.users import count_users, get_user_language
-from app.states import AdminPlanStates, AdminSettingsStates, AdminStates
+from app.states import AdminForceJoinStates, AdminPlanStates, AdminSettingsStates, AdminStates
 from configs.configs import settings
 
 router = Router()
@@ -332,15 +333,22 @@ async def cmd_failed_orders(message: Message) -> None:
 async def _show_admin_panel(target: Message | CallbackQuery) -> None:
     async with get_db() as db:
         verify_on = await get_setting(db, "phone_verification_enabled") == "1"
+        force_join_on = await get_setting(db, "force_join_enabled") == "1"
+        force_join_channel = await get_setting(db, "force_join_channel") or "not set"
 
     verify_label = (
         f"{'🟢' if verify_on else '🔴'} Phone Verification: "
         f"{'ON → Disable' if verify_on else 'OFF → Enable'}"
     )
+    force_join_label = (
+        f"{'🟢' if force_join_on else '🔴'} Force Join: "
+        f"{force_join_channel if force_join_on else 'OFF'}"
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Manage Plans", callback_data="aplan:list")],
         [InlineKeyboardButton(text="💳 Payment Settings", callback_data="apay:show")],
         [InlineKeyboardButton(text=verify_label, callback_data="admin:toggle_verify")],
+        [InlineKeyboardButton(text=f"📢 {force_join_label}", callback_data="admin:force_join")],
         [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:back")],
     ])
     text = (
@@ -378,6 +386,88 @@ async def cb_toggle_verification(callback: CallbackQuery) -> None:
     )
     await _show_admin_panel(callback)
     logger.info("Admin %s phone verification", "enabled" if now_on else "disabled")
+
+
+# ── Force Join Channel ───────────────────────────────────────────────────────
+
+async def _show_force_join_settings(target: Message | CallbackQuery) -> None:
+    async with get_db() as db:
+        enabled = await get_setting(db, "force_join_enabled") == "1"
+        channel = await get_setting(db, "force_join_channel") or "Not set"
+
+    status = "🟢 ON" if enabled else "🔴 OFF"
+    toggle_label = f"{'🟢 ON → Disable' if enabled else '🔴 OFF → Enable'}"
+    text = (
+        f"<b>📢 Force Join Channel</b>\n\n"
+        f"Status: {status}\n"
+        f"Channel: <code>{channel}</code>\n\n"
+        "When enabled, users must join the channel before using the bot."
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=toggle_label, callback_data="admin:toggle_force_join")],
+        [InlineKeyboardButton(text="✏️ Set Channel", callback_data="admin:set_force_join_channel")],
+        [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:admin")],
+    ])
+    if isinstance(target, CallbackQuery):
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await target.answer()
+    else:
+        await target.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(lambda c: c.data == "admin:force_join")
+async def cb_force_join(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    await _show_force_join_settings(callback)
+
+
+@router.callback_query(lambda c: c.data == "admin:toggle_force_join")
+async def cb_toggle_force_join(callback: CallbackQuery) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    async with get_db() as db:
+        now_on = await toggle_force_join(db)
+    await callback.answer(
+        f"Force join {'enabled' if now_on else 'disabled'}.", show_alert=True
+    )
+    await _show_force_join_settings(callback)
+    logger.info("Admin %s force join channel", "enabled" if now_on else "disabled")
+
+
+@router.callback_query(lambda c: c.data == "admin:set_force_join_channel")
+async def cb_set_force_join_channel(callback: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    await state.set_state(AdminForceJoinStates.waiting_for_channel)
+    await callback.answer()
+    await callback.message.answer(
+        "Send the channel username (e.g. <code>@mychannel</code>), or /cancel to abort.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(AdminForceJoinStates.waiting_for_channel, F.text)
+async def handle_force_join_channel(message: Message, state: FSMContext) -> None:
+    if not _is_admin(message.from_user.id):
+        return
+    if message.text.strip() == "/cancel":
+        await state.clear()
+        await message.answer("Cancelled.")
+        return
+    channel = "@" + message.text.strip().lstrip("@")
+    async with get_db() as db:
+        await set_setting(db, "force_join_channel", channel)
+    await state.clear()
+    await message.answer(
+        f"✅ Force join channel set to <code>{channel}</code>.",
+        parse_mode="HTML",
+    )
+    await _show_force_join_settings(message)
+    logger.info("Admin set force join channel to %s", channel)
 
 
 # ── Plan management ──────────────────────────────────────────────────────────

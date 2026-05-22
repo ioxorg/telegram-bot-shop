@@ -16,7 +16,7 @@ from aiogram.types import (
 
 from app.db import get_db, init_db
 from app.handlers import admin, config, my_subs, plans, purchase, start, static, verification
-from app.middleware import LanguageMiddleware
+from app.middleware import ForceJoinMiddleware, LanguageMiddleware
 from app.repo.bot_settings import seed_payment_settings
 from configs.configs import settings
 
@@ -95,6 +95,8 @@ async def main() -> None:
 
     dp.message.middleware(LanguageMiddleware())
     dp.callback_query.middleware(LanguageMiddleware())
+    dp.message.middleware(ForceJoinMiddleware())
+    dp.callback_query.middleware(ForceJoinMiddleware())
 
     dp.include_router(start.router)
     dp.include_router(verification.router)

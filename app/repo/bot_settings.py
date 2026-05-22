@@ -13,6 +13,8 @@ _DEFAULTS: dict[str, str] = {
     "nowpayments_enabled": "0",
     "usd_toman_rate": "600000",
     "phone_verification_enabled": "1",
+    "force_join_enabled": "0",
+    "force_join_channel": "",
 }
 
 _ALL_KEYS = ", ".join(f"'{k}'" for k in _DEFAULTS)
@@ -81,6 +83,10 @@ async def toggle_nowpayments(db: aiosqlite.Connection) -> bool:
 
 async def toggle_phone_verification(db: aiosqlite.Connection) -> bool:
     return await _toggle(db, "phone_verification_enabled")
+
+
+async def toggle_force_join(db: aiosqlite.Connection) -> bool:
+    return await _toggle(db, "force_join_enabled")
 
 
 async def seed_payment_settings(
