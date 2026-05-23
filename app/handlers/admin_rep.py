@@ -486,6 +486,8 @@ _REP_SETTING_LABELS: dict[str, str] = {
     "rep_cashback_percent":      "Cashback Percent (%)",
     "rep_min_config_gb":         "Min Config GB",
     "rep_max_config_gb":         "Max Config GB",
+    "rep_min_charge_gb":         "Min Charge GB (per transaction)",
+    "rep_max_charge_gb":         "Max Charge GB (per transaction, 0 = unlimited)",
     # Rep-specific card payment details
     "rep_card_number":           "Rep Card Number",
     "rep_bank_name":             "Rep Bank Name",
@@ -494,6 +496,8 @@ _REP_SETTING_LABELS: dict[str, str] = {
 
 # Fields that accept free text (skip positive-number validation)
 _REP_TEXT_FIELDS = {"rep_card_number", "rep_bank_name", "rep_card_holder_name"}
+# Fields that allow zero (e.g. "0 = unlimited")
+_REP_ZERO_OK_FIELDS = {"rep_max_charge_gb", "rep_max_config_gb"}
 
 
 async def _show_rep_settings(target: Union[Message, CallbackQuery]) -> None:
@@ -505,6 +509,14 @@ async def _show_rep_settings(target: Union[Message, CallbackQuery]) -> None:
     bank = ps.get("rep_bank_name") or "—"
     holder = ps.get("rep_card_holder_name") or "—"
 
+    min_charge = ps.get("rep_min_charge_gb") or "1"
+    max_charge = ps.get("rep_max_charge_gb") or "0"
+    charge_range = (
+        f"{min_charge}–{max_charge} GB"
+        if int(max_charge) > 0
+        else f"{min_charge}+ GB (no max)"
+    )
+
     text = (
         "<b>⚙️ Sales Rep Settings</b>\n\n"
         f"Price/GB: <b>{int(ps.get('rep_price_per_gb') or '5000'):,} "
@@ -513,7 +525,8 @@ async def _show_rep_settings(target: Union[Message, CallbackQuery]) -> None:
         f"Cashback: <b>{ps.get('rep_cashback_percent', '5')}%</b> on "
         f"<b>{ps.get('rep_cashback_threshold_gb', '40')}+ GB</b>\n"
         f"Config Range: "
-        f"<b>{ps.get('rep_min_config_gb', '5')}–{ps.get('rep_max_config_gb', '30')} GB</b>\n\n"
+        f"<b>{ps.get('rep_min_config_gb', '5')}–{ps.get('rep_max_config_gb', '30')} GB</b>\n"
+        f"Charge Range: <b>{charge_range}</b>\n\n"
         f"<b>Rep Card Payment</b>\n"
         f"Card: <code>{card}</code>\n"
         f"Bank: {bank}\n"
@@ -656,10 +669,17 @@ async def handle_rep_settings_input(message: Message, state: FSMContext) -> None
     if field not in _REP_TEXT_FIELDS:
         try:
             num = float(value)
-            if num <= 0:
-                raise ValueError
+            if field in _REP_ZERO_OK_FIELDS:
+                if num < 0:
+                    raise ValueError
+            else:
+                if num <= 0:
+                    raise ValueError
         except ValueError:
-            await message.answer("❌ Please send a positive number.")
+            if field in _REP_ZERO_OK_FIELDS:
+                await message.answer("❌ Please send a non-negative number (0 = unlimited).")
+            else:
+                await message.answer("❌ Please send a positive number.")
             return
 
     async with get_db() as db:

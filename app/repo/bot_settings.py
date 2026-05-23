@@ -28,6 +28,9 @@ _DEFAULTS: dict[str, str] = {
     "rep_card_number": "",
     "rep_bank_name": "",
     "rep_card_holder_name": "",
+    # Charge transaction size limits (0 = no limit)
+    "rep_min_charge_gb": "1",
+    "rep_max_charge_gb": "0",
 }
 
 _ALL_KEYS = ", ".join(f"'{k}'" for k in _DEFAULTS)
