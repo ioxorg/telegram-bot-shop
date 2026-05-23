@@ -85,7 +85,7 @@ async def toggle_phone_verification(db: DbConn) -> bool:
     return await _toggle(db, "phone_verification_enabled")
 
 
-async def toggle_force_join(db: aiosqlite.Connection) -> bool:
+async def toggle_force_join(db: DbConn) -> bool:
     return await _toggle(db, "force_join_enabled")
 
 
