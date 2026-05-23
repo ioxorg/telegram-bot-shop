@@ -11,6 +11,7 @@ from app.db import get_db
 from app.i18n import t
 from app.keyboards import language_picker, main_menu, phone_request_keyboard
 from app.repo.bot_settings import get_setting
+from app.repo.sales_reps import get_rep
 from app.repo.users import get_phone_number, set_user_language, upsert_user
 from app.states import VerificationStates
 from configs.configs import settings
@@ -51,6 +52,9 @@ async def cmd_start(message: Message, bot: Bot, state: FSMContext, lang: str) ->
         is_new = await upsert_user(db, message.from_user)
         phone = await get_phone_number(db, message.from_user.id)
         verify_enabled = await get_setting(db, "phone_verification_enabled") == "1"
+        rep = await get_rep(db, message.from_user.id)
+
+    is_rep = rep is not None and bool(rep["is_active"])
 
     await _dismiss_reply_keyboard(message)
     await _send_sticker(message)
@@ -68,7 +72,10 @@ async def cmd_start(message: Message, bot: Bot, state: FSMContext, lang: str) ->
         await _ask_for_phone(message, state, lang)
         return
 
-    await message.answer(t("welcome", lang), reply_markup=main_menu(lang, is_admin=is_admin))
+    await message.answer(
+        t("welcome", lang),
+        reply_markup=main_menu(lang, is_admin=is_admin, is_rep=is_rep),
+    )
     logger.info("User %d opened main menu (lang=%s)", message.from_user.id, lang)
 
 
@@ -89,6 +96,9 @@ async def cb_lang_set(callback: CallbackQuery, state: FSMContext, lang: str) -> 
         await set_user_language(db, callback.from_user.id, new_lang)
         phone = await get_phone_number(db, callback.from_user.id)
         verify_enabled = await get_setting(db, "phone_verification_enabled") == "1"
+        rep = await get_rep(db, callback.from_user.id)
+
+    is_rep = rep is not None and bool(rep["is_active"])
 
     await callback.answer()
     await _send_sticker(callback.message)
@@ -100,7 +110,7 @@ async def cb_lang_set(callback: CallbackQuery, state: FSMContext, lang: str) -> 
 
     await callback.message.answer(
         t("welcome", new_lang),
-        reply_markup=main_menu(new_lang, is_admin=is_admin),
+        reply_markup=main_menu(new_lang, is_admin=is_admin, is_rep=is_rep),
     )
     logger.info("User %d set language to %s", callback.from_user.id, new_lang)
 
@@ -108,7 +118,11 @@ async def cb_lang_set(callback: CallbackQuery, state: FSMContext, lang: str) -> 
 @router.callback_query(lambda c: c.data in ("menu:back", "menu:main"))
 async def cb_back_to_menu(callback: CallbackQuery, lang: str) -> None:
     is_admin = callback.from_user.id == settings.admin_telegram_id
+    async with get_db() as db:
+        rep = await get_rep(db, callback.from_user.id)
+    is_rep = rep is not None and bool(rep["is_active"])
     await callback.message.edit_text(
-        t("welcome", lang), reply_markup=main_menu(lang, is_admin=is_admin)
+        t("welcome", lang),
+        reply_markup=main_menu(lang, is_admin=is_admin, is_rep=is_rep),
     )
     await callback.answer()

@@ -17,6 +17,17 @@ _DEFAULTS: dict[str, str] = {
     "phone_verification_enabled": "1",
     "force_join_enabled": "0",
     "force_join_channel": "",
+    # ── Sales rep settings ────────────────────────────────────────────────────
+    "rep_price_per_gb": "5000",
+    "rep_config_duration_days": "30",
+    "rep_cashback_threshold_gb": "40",
+    "rep_cashback_percent": "5",
+    "rep_min_config_gb": "5",
+    "rep_max_config_gb": "30",
+    # Rep-specific card payment details (separate from customer card)
+    "rep_card_number": "",
+    "rep_bank_name": "",
+    "rep_card_holder_name": "",
 }
 
 _ALL_KEYS = ", ".join(f"'{k}'" for k in _DEFAULTS)

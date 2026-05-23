@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 
 from app.db import get_db, init_db
-from app.handlers import admin, config, my_subs, plans, purchase, start, static, verification
+from app.handlers import admin, admin_rep, config, my_subs, plans, purchase, sales_rep, start, static, verification
 from app.middleware import ForceJoinMiddleware, LanguageMiddleware
 from app.repo.bot_settings import seed_payment_settings
 from configs.configs import settings
@@ -103,9 +103,11 @@ async def main() -> None:
     dp.include_router(plans.router)
     dp.include_router(purchase.router)
     dp.include_router(my_subs.router)
+    dp.include_router(sales_rep.router)
     dp.include_router(config.router)
     dp.include_router(static.router)
     dp.include_router(admin.router)
+    dp.include_router(admin_rep.router)
 
     await _setup_menu(bot)
 

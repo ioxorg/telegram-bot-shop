@@ -17,7 +17,7 @@ def _plan_label(plan, currency: str) -> str:
     return f"{data} – {plan['duration_days']} Days – {users} | {plan['price']:,} {currency}"
 
 
-def main_menu(lang: str, is_admin: bool = False) -> InlineKeyboardMarkup:
+def main_menu(lang: str, is_admin: bool = False, is_rep: bool = False) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=t("btn_buy", lang), callback_data="menu:buy")],
         [InlineKeyboardButton(text=t("btn_my_subs", lang), callback_data="menu:my_subs")],
@@ -26,6 +26,8 @@ def main_menu(lang: str, is_admin: bool = False) -> InlineKeyboardMarkup:
     if settings.support_url:
         rows.append([InlineKeyboardButton(text=t("btn_support", lang), url=settings.support_url)])
     rows.append([InlineKeyboardButton(text=t("btn_language", lang), callback_data="lang:select")])
+    if is_rep:
+        rows.append([InlineKeyboardButton(text=t("btn_rep_panel", lang), callback_data="rep:panel")])
     if is_admin:
         rows.append([InlineKeyboardButton(text=t("btn_admin", lang), callback_data="menu:admin")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -124,6 +126,106 @@ def nowpay_keyboard(invoice_url: str, order_id: int, lang: str) -> InlineKeyboar
             text=t("nowpay_check_btn", lang),
             callback_data=f"nowpay:check:{order_id}",
         )],
+    ])
+
+
+# ── Sales rep keyboards ───────────────────────────────────────────────────────
+
+def rep_panel_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("rep_btn_wallet", lang), callback_data="rep:wallet")],
+        [InlineKeyboardButton(text=t("rep_btn_charge", lang), callback_data="rep:charge")],
+        [InlineKeyboardButton(text=t("rep_btn_create_config", lang), callback_data="rep:create_config")],
+        [InlineKeyboardButton(text=t("rep_btn_my_configs", lang), callback_data="rep:my_configs")],
+        [InlineKeyboardButton(text=t("btn_back", lang), callback_data="menu:back")],
+    ])
+
+
+def rep_back_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("btn_back", lang), callback_data="rep:panel")],
+    ])
+
+
+def admin_rep_list_keyboard(reps: list) -> InlineKeyboardMarkup:
+    rows = []
+    for r in reps:
+        name = f"@{r['username']}" if r["username"] else r["first_name"]
+        status = "✅" if r["is_active"] else "❌"
+        balance = f"{r['gb_balance']:.1f}".rstrip("0").rstrip(".")
+        label = f"{status} {name} — {balance} GB"
+        rows.append([InlineKeyboardButton(text=label, callback_data=f"arep:view:{r['telegram_id']}")])
+    rows.append([InlineKeyboardButton(text="➕ Add Rep", callback_data="arep:add")])
+    rows.append([InlineKeyboardButton(text="📋 Pending Charges", callback_data="arep:pending_charges")])
+    rows.append([InlineKeyboardButton(text="⚙️ Rep Settings", callback_data="arep:settings")])
+    rows.append([InlineKeyboardButton(text="⬅️ Back", callback_data="menu:admin")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_rep_actions_keyboard(
+    rep_id: int, is_active: bool, has_custom_price: bool = False
+) -> InlineKeyboardMarkup:
+    toggle_text = "🔴 Suspend" if is_active else "🟢 Activate"
+    price_text = "💰 Edit Custom Price" if has_custom_price else "💰 Set Custom Price"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=toggle_text, callback_data=f"arep:toggle:{rep_id}")],
+        [InlineKeyboardButton(text=price_text, callback_data=f"arep:set_price:{rep_id}")],
+        [InlineKeyboardButton(text="⬅️ Back", callback_data="arep:list")],
+    ])
+
+
+def admin_rep_charge_review(charge_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Approve", callback_data=f"arep:charge_approve:{charge_id}"),
+            InlineKeyboardButton(text="❌ Reject", callback_data=f"arep:charge_reject:{charge_id}"),
+        ]
+    ])
+
+
+def admin_rep_settings_keyboard(ps: dict) -> InlineKeyboardMarkup:
+    price = int(ps.get("rep_price_per_gb") or "5000")
+    duration = ps.get("rep_config_duration_days") or "30"
+    threshold = ps.get("rep_cashback_threshold_gb") or "40"
+    percent = ps.get("rep_cashback_percent") or "5"
+    min_gb = ps.get("rep_min_config_gb") or "5"
+    max_gb = ps.get("rep_max_config_gb") or "30"
+    currency = ps.get("currency_label") or "—"
+    card = ps.get("rep_card_number") or "—"
+    bank = ps.get("rep_bank_name") or "—"
+    holder = ps.get("rep_card_holder_name") or "—"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        # ── Pricing & config ──
+        [InlineKeyboardButton(
+            text=f"💰 Price/GB: {price:,} {currency}",
+            callback_data="arep:set:rep_price_per_gb",
+        )],
+        [InlineKeyboardButton(
+            text=f"📅 Config Duration: {duration} days",
+            callback_data="arep:set:rep_config_duration_days",
+        )],
+        [InlineKeyboardButton(
+            text=f"🎁 Cashback: {percent}% on {threshold}+ GB",
+            callback_data="arep:set:rep_cashback_threshold_gb",
+        )],
+        [InlineKeyboardButton(
+            text=f"📦 Config GB Range: {min_gb}–{max_gb} GB",
+            callback_data="arep:set:rep_min_config_gb",
+        )],
+        # ── Rep-only card payment ──
+        [InlineKeyboardButton(
+            text=f"💳 Rep Card: {card}",
+            callback_data="arep:set:rep_card_number",
+        )],
+        [InlineKeyboardButton(
+            text=f"🏦 Rep Bank: {bank}",
+            callback_data="arep:set:rep_bank_name",
+        )],
+        [InlineKeyboardButton(
+            text=f"👤 Rep Holder: {holder}",
+            callback_data="arep:set:rep_card_holder_name",
+        )],
+        [InlineKeyboardButton(text="⬅️ Back", callback_data="arep:list")],
     ])
 
 

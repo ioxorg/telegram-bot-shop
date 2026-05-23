@@ -84,9 +84,53 @@ CREATE TABLE IF NOT EXISTS bot_settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS sales_reps (
+    telegram_id    INTEGER PRIMARY KEY,
+    gb_balance     REAL NOT NULL DEFAULT 0,
+    total_charged  REAL NOT NULL DEFAULT 0,
+    total_used     REAL NOT NULL DEFAULT 0,
+    is_active      INTEGER NOT NULL DEFAULT 1,
+    price_per_gb   INTEGER,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+);
+
+CREATE TABLE IF NOT EXISTS rep_charges (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id     INTEGER NOT NULL,
+    gb_amount       REAL NOT NULL,
+    gb_cashback     REAL NOT NULL DEFAULT 0,
+    price_per_gb    INTEGER NOT NULL,
+    total_price     INTEGER NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending_receipt',
+    receipt_file_id TEXT,
+    admin_note      TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    reviewed_at     TEXT,
+    FOREIGN KEY (telegram_id) REFERENCES sales_reps(telegram_id)
+);
+
+CREATE TABLE IF NOT EXISTS rep_configs (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    rep_telegram_id  INTEGER NOT NULL,
+    config_name      TEXT NOT NULL,
+    gb_allocated     REAL NOT NULL,
+    duration_days    INTEGER NOT NULL,
+    marzban_username TEXT,
+    subscription_url TEXT,
+    status           TEXT NOT NULL DEFAULT 'active',
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (rep_telegram_id) REFERENCES sales_reps(telegram_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rep_charges_status      ON rep_charges(status);
+CREATE INDEX IF NOT EXISTS idx_rep_charges_telegram_id ON rep_charges(telegram_id);
+CREATE INDEX IF NOT EXISTS idx_rep_configs_rep_id      ON rep_configs(rep_telegram_id);
 """
 
 _SQLITE_MIGRATIONS = [
+    ("ALTER TABLE sales_reps ADD COLUMN price_per_gb INTEGER",                      "sales_reps.price_per_gb"),
     ("ALTER TABLE orders ADD COLUMN config_name TEXT",                              "orders.config_name"),
     ("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fa'",            "users.language"),
     ("ALTER TABLE plans ADD COLUMN user_limit INTEGER NOT NULL DEFAULT 1",          "plans.user_limit"),
@@ -176,6 +220,51 @@ _PG_DDL: list[str] = [
         value TEXT NOT NULL DEFAULT ''
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS sales_reps (
+        telegram_id    BIGINT PRIMARY KEY REFERENCES users(telegram_id),
+        gb_balance     REAL NOT NULL DEFAULT 0,
+        total_charged  REAL NOT NULL DEFAULT 0,
+        total_used     REAL NOT NULL DEFAULT 0,
+        is_active      INTEGER NOT NULL DEFAULT 1,
+        price_per_gb   INTEGER,
+        created_at     TEXT NOT NULL
+                           DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS rep_charges (
+        id              SERIAL PRIMARY KEY,
+        telegram_id     BIGINT NOT NULL REFERENCES sales_reps(telegram_id),
+        gb_amount       REAL NOT NULL,
+        gb_cashback     REAL NOT NULL DEFAULT 0,
+        price_per_gb    INTEGER NOT NULL,
+        total_price     INTEGER NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'pending_receipt',
+        receipt_file_id TEXT,
+        admin_note      TEXT,
+        created_at      TEXT NOT NULL
+                            DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+        reviewed_at     TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS rep_configs (
+        id               SERIAL PRIMARY KEY,
+        rep_telegram_id  BIGINT NOT NULL REFERENCES sales_reps(telegram_id),
+        config_name      TEXT NOT NULL,
+        gb_allocated     REAL NOT NULL,
+        duration_days    INTEGER NOT NULL,
+        marzban_username TEXT,
+        subscription_url TEXT,
+        status           TEXT NOT NULL DEFAULT 'active',
+        created_at       TEXT NOT NULL
+                             DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_rep_charges_status      ON rep_charges(status)",
+    "CREATE INDEX IF NOT EXISTS idx_rep_charges_telegram_id ON rep_charges(telegram_id)",
+    "CREATE INDEX IF NOT EXISTS idx_rep_configs_rep_id      ON rep_configs(rep_telegram_id)",
 ]
 
 _QUESTION_MARK = re.compile(r"\?")
@@ -245,6 +334,10 @@ async def init_db() -> None:
         async with _pg_pool.acquire() as conn:
             for stmt in _PG_DDL:
                 await conn.execute(stmt)
+            # Idempotent column additions for existing deployments
+            await conn.execute(
+                "ALTER TABLE sales_reps ADD COLUMN IF NOT EXISTS price_per_gb INTEGER"
+            )
         logger.info("PostgreSQL database initialised")
         return
 

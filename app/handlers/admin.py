@@ -347,6 +347,7 @@ async def _show_admin_panel(target: Message | CallbackQuery) -> None:
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Manage Plans", callback_data="aplan:list")],
         [InlineKeyboardButton(text="💳 Payment Settings", callback_data="apay:show")],
+        [InlineKeyboardButton(text="👥 Sales Reps", callback_data="arep:list")],
         [InlineKeyboardButton(text=verify_label, callback_data="admin:toggle_verify")],
         [InlineKeyboardButton(text=f"📢 {force_join_label}", callback_data="admin:force_join")],
         [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:back")],
