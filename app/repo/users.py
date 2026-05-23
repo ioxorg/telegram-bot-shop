@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import aiosqlite
 from aiogram.types import User as TgUser
 
+from app.db import DbConn
 
-async def upsert_user(db: aiosqlite.Connection, user: TgUser) -> bool:
+
+async def upsert_user(db: DbConn, user: TgUser) -> bool:
     """Returns True if this is the user's first visit."""
-    async with db.execute(
+    row = await db.fetchone(
         "SELECT 1 FROM users WHERE telegram_id = ?", (user.id,)
-    ) as cur:
-        is_new = await cur.fetchone() is None
+    )
+    is_new = row is None
 
     await db.execute(
         """
@@ -26,17 +27,14 @@ async def upsert_user(db: aiosqlite.Connection, user: TgUser) -> bool:
     return is_new
 
 
-async def get_user_language(db: aiosqlite.Connection, telegram_id: int) -> str:
-    async with db.execute(
+async def get_user_language(db: DbConn, telegram_id: int) -> str:
+    row = await db.fetchone(
         "SELECT language FROM users WHERE telegram_id = ?", (telegram_id,)
-    ) as cur:
-        row = await cur.fetchone()
+    )
     return row["language"] if row else "fa"
 
 
-async def set_user_language(
-    db: aiosqlite.Connection, telegram_id: int, lang: str
-) -> None:
+async def set_user_language(db: DbConn, telegram_id: int, lang: str) -> None:
     await db.execute(
         "UPDATE users SET language = ? WHERE telegram_id = ?",
         (lang, telegram_id),
@@ -44,22 +42,20 @@ async def set_user_language(
     await db.commit()
 
 
-async def get_phone_number(db: aiosqlite.Connection, telegram_id: int) -> str | None:
-    async with db.execute(
+async def get_phone_number(db: DbConn, telegram_id: int) -> str | None:
+    row = await db.fetchone(
         "SELECT phone_number FROM users WHERE telegram_id = ?", (telegram_id,)
-    ) as cur:
-        row = await cur.fetchone()
+    )
     return row["phone_number"] if row else None
 
 
-async def set_phone_number(db: aiosqlite.Connection, telegram_id: int, phone: str) -> None:
+async def set_phone_number(db: DbConn, telegram_id: int, phone: str) -> None:
     await db.execute(
         "UPDATE users SET phone_number = ? WHERE telegram_id = ?", (phone, telegram_id)
     )
     await db.commit()
 
 
-async def count_users(db: aiosqlite.Connection) -> int:
-    async with db.execute("SELECT COUNT(*) FROM users") as cur:
-        row = await cur.fetchone()
-        return row[0] if row else 0
+async def count_users(db: DbConn) -> int:
+    row = await db.fetchone("SELECT COUNT(*) FROM users")
+    return row[0] if row else 0

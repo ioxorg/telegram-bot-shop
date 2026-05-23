@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-import aiosqlite
+from typing import Any
+
+from app.db import DbConn
 
 _DEFAULTS: dict[str, str] = {
     "card_number": "",
@@ -20,15 +22,14 @@ _DEFAULTS: dict[str, str] = {
 _ALL_KEYS = ", ".join(f"'{k}'" for k in _DEFAULTS)
 
 
-async def get_setting(db: aiosqlite.Connection, key: str) -> str:
-    async with db.execute(
+async def get_setting(db: DbConn, key: str) -> str:
+    row = await db.fetchone(
         "SELECT value FROM bot_settings WHERE key = ?", (key,)
-    ) as cur:
-        row = await cur.fetchone()
+    )
     return row["value"] if row else _DEFAULTS.get(key, "")
 
 
-async def set_setting(db: aiosqlite.Connection, key: str, value: str) -> None:
+async def set_setting(db: DbConn, key: str, value: str) -> None:
     await db.execute(
         """
         INSERT INTO bot_settings (key, value) VALUES (?, ?)
@@ -39,11 +40,10 @@ async def set_setting(db: aiosqlite.Connection, key: str, value: str) -> None:
     await db.commit()
 
 
-async def get_payment_settings(db: aiosqlite.Connection) -> dict[str, str]:
-    async with db.execute(
+async def get_payment_settings(db: DbConn) -> dict[str, str]:
+    rows = await db.fetchall(
         f"SELECT key, value FROM bot_settings WHERE key IN ({_ALL_KEYS})"
-    ) as cur:
-        rows = await cur.fetchall()
+    )
     result = dict(_DEFAULTS)
     for row in rows:
         result[row["key"]] = row["value"]
@@ -51,7 +51,7 @@ async def get_payment_settings(db: aiosqlite.Connection) -> dict[str, str]:
 
 
 async def get_active_payment_methods(
-    db: aiosqlite.Connection,
+    db: DbConn,
     nowpayments_api_key: str = "",
 ) -> dict[str, bool]:
     ps = await get_payment_settings(db)
@@ -62,26 +62,26 @@ async def get_active_payment_methods(
     }
 
 
-async def _toggle(db: aiosqlite.Connection, key: str) -> bool:
+async def _toggle(db: DbConn, key: str) -> bool:
     current = await get_setting(db, key)
     new_value = "0" if current == "1" else "1"
     await set_setting(db, key, new_value)
     return new_value == "1"
 
 
-async def toggle_payment_enabled(db: aiosqlite.Connection) -> bool:
+async def toggle_payment_enabled(db: DbConn) -> bool:
     return await _toggle(db, "card_payment_enabled")
 
 
-async def toggle_stars_payment(db: aiosqlite.Connection) -> bool:
+async def toggle_stars_payment(db: DbConn) -> bool:
     return await _toggle(db, "stars_payment_enabled")
 
 
-async def toggle_nowpayments(db: aiosqlite.Connection) -> bool:
+async def toggle_nowpayments(db: DbConn) -> bool:
     return await _toggle(db, "nowpayments_enabled")
 
 
-async def toggle_phone_verification(db: aiosqlite.Connection) -> bool:
+async def toggle_phone_verification(db: DbConn) -> bool:
     return await _toggle(db, "phone_verification_enabled")
 
 
@@ -90,7 +90,7 @@ async def toggle_force_join(db: aiosqlite.Connection) -> bool:
 
 
 async def seed_payment_settings(
-    db: aiosqlite.Connection,
+    db: DbConn,
     card_number: str,
     card_holder_name: str,
     currency_label: str,
@@ -102,7 +102,7 @@ async def seed_payment_settings(
         ("currency_label", currency_label),
     ]:
         await db.execute(
-            "INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, ?)",
+            "INSERT INTO bot_settings (key, value) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (key, value),
         )
     await db.commit()

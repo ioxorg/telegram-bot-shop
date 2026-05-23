@@ -38,8 +38,14 @@ class Settings:
     # Proxy — socks5h://user:pass@host:port (empty = direct)
     telegram_proxy_url: str
 
-    # Runtime
+    # Database backend — "sqlite" (default) or "postgres"
+    db_backend: str
+    # SQLite — only used when db_backend == "sqlite"
     db_path: str
+    # PostgreSQL DSN — only used when db_backend == "postgres"
+    # e.g. postgresql://user:pass@localhost:5432/shopdb
+    database_url: str
+
     log_level: str
 
 
@@ -70,7 +76,9 @@ def load_settings() -> Settings:
         nowpayments_email=os.getenv("NOWPAYMENTS_EMAIL", ""),
         nowpayments_password=os.getenv("NOWPAYMENTS_PASSWORD", ""),
         telegram_proxy_url=os.getenv("TELEGRAM_PROXY_URL", ""),
+        db_backend=os.getenv("DB_BACKEND", "sqlite").lower(),
         db_path=os.getenv("DB_PATH", "data/shop.db"),
+        database_url=os.getenv("DATABASE_URL", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
     )
 

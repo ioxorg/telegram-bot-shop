@@ -1,24 +1,29 @@
 from __future__ import annotations
 
-import aiosqlite
+from datetime import datetime, timezone
+from typing import Any
+
+from app.db import DbConn
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 async def create_order(
-    db: aiosqlite.Connection,
+    db: DbConn,
     telegram_id: int,
     plan_id: int,
     price: int,
     payment_method: str = "card",
 ) -> int:
-    async with db.execute(
+    return await db.execute_returning_id(
         "INSERT INTO orders (telegram_id, plan_id, price, payment_method) VALUES (?, ?, ?, ?)",
         (telegram_id, plan_id, price, payment_method),
-    ) as cur:
-        await db.commit()
-        return cur.lastrowid  # type: ignore[return-value]
+    )
 
 
-async def set_config_name(db: aiosqlite.Connection, order_id: int, config_name: str) -> None:
+async def set_config_name(db: DbConn, order_id: int, config_name: str) -> None:
     await db.execute(
         "UPDATE orders SET config_name = ? WHERE id = ?",
         (config_name, order_id),
@@ -26,7 +31,7 @@ async def set_config_name(db: aiosqlite.Connection, order_id: int, config_name: 
     await db.commit()
 
 
-async def set_nowpayments_id(db: aiosqlite.Connection, order_id: int, payment_id: str) -> None:
+async def set_nowpayments_id(db: DbConn, order_id: int, payment_id: str) -> None:
     await db.execute(
         "UPDATE orders SET nowpayments_id = ? WHERE id = ?",
         (payment_id, order_id),
@@ -41,8 +46,8 @@ _PLAN_TITLE_SQL = """
 """
 
 
-async def get_order(db: aiosqlite.Connection, order_id: int) -> aiosqlite.Row | None:
-    async with db.execute(
+async def get_order(db: DbConn, order_id: int) -> Any | None:
+    return await db.fetchone(
         f"""
         SELECT o.*, p.duration_days, p.data_limit_gb, p.user_limit,
                ({_PLAN_TITLE_SQL}) AS title
@@ -51,12 +56,11 @@ async def get_order(db: aiosqlite.Connection, order_id: int) -> aiosqlite.Row | 
         WHERE o.id = ?
         """,
         (order_id,),
-    ) as cur:
-        return await cur.fetchone()
+    )
 
 
 async def set_receipt(
-    db: aiosqlite.Connection, order_id: int, file_id: str, config_name: str
+    db: DbConn, order_id: int, file_id: str, config_name: str
 ) -> None:
     await db.execute(
         """
@@ -70,7 +74,7 @@ async def set_receipt(
 
 
 async def approve_order(
-    db: aiosqlite.Connection,
+    db: DbConn,
     order_id: int,
     marzban_username: str,
     subscription_url: str,
@@ -81,47 +85,43 @@ async def approve_order(
         SET status = 'approved',
             marzban_username = ?,
             subscription_url = ?,
-            reviewed_at = datetime('now')
+            reviewed_at = ?
         WHERE id = ?
         """,
-        (marzban_username, subscription_url, order_id),
+        (marzban_username, subscription_url, _now(), order_id),
     )
     await db.commit()
 
 
-async def reject_order(
-    db: aiosqlite.Connection, order_id: int, reason: str
-) -> None:
+async def reject_order(db: DbConn, order_id: int, reason: str) -> None:
     await db.execute(
         """
         UPDATE orders
         SET status = 'rejected',
             admin_note = ?,
-            reviewed_at = datetime('now')
+            reviewed_at = ?
         WHERE id = ?
         """,
-        (reason, order_id),
+        (reason, _now(), order_id),
     )
     await db.commit()
 
 
-async def fail_order(
-    db: aiosqlite.Connection, order_id: int, note: str
-) -> None:
+async def fail_order(db: DbConn, order_id: int, note: str) -> None:
     await db.execute(
         """
         UPDATE orders
         SET status = 'failed',
             admin_note = ?,
-            reviewed_at = datetime('now')
+            reviewed_at = ?
         WHERE id = ?
         """,
-        (note, order_id),
+        (note, _now(), order_id),
     )
     await db.commit()
 
 
-async def cancel_order(db: aiosqlite.Connection, order_id: int) -> None:
+async def cancel_order(db: DbConn, order_id: int) -> None:
     await db.execute(
         """
         UPDATE orders
@@ -133,10 +133,8 @@ async def cancel_order(db: aiosqlite.Connection, order_id: int) -> None:
     await db.commit()
 
 
-async def get_approved_orders(
-    db: aiosqlite.Connection, telegram_id: int
-) -> list[aiosqlite.Row]:
-    async with db.execute(
+async def get_approved_orders(db: DbConn, telegram_id: int) -> list[Any]:
+    return await db.fetchall(
         f"""
         SELECT o.*, p.duration_days, p.data_limit_gb, p.user_limit,
                ({_PLAN_TITLE_SQL}) AS title
@@ -146,12 +144,11 @@ async def get_approved_orders(
         ORDER BY o.reviewed_at DESC
         """,
         (telegram_id,),
-    ) as cur:
-        return await cur.fetchall()
+    )
 
 
-async def get_pending_orders(db: aiosqlite.Connection) -> list[aiosqlite.Row]:
-    async with db.execute(
+async def get_pending_orders(db: DbConn) -> list[Any]:
+    return await db.fetchall(
         f"""
         SELECT o.*, ({_PLAN_TITLE_SQL}) AS title, u.username, u.first_name
         FROM orders o
@@ -160,12 +157,11 @@ async def get_pending_orders(db: aiosqlite.Connection) -> list[aiosqlite.Row]:
         WHERE o.status = 'pending_review'
         ORDER BY o.created_at
         """,
-    ) as cur:
-        return await cur.fetchall()
+    )
 
 
-async def get_failed_orders(db: aiosqlite.Connection) -> list[aiosqlite.Row]:
-    async with db.execute(
+async def get_failed_orders(db: DbConn) -> list[Any]:
+    return await db.fetchall(
         f"""
         SELECT o.*, ({_PLAN_TITLE_SQL}) AS title, u.username, u.first_name
         FROM orders o
@@ -175,21 +171,16 @@ async def get_failed_orders(db: aiosqlite.Connection) -> list[aiosqlite.Row]:
         ORDER BY o.reviewed_at DESC
         LIMIT 50
         """,
-    ) as cur:
-        return await cur.fetchall()
+    )
 
 
-async def count_approved(db: aiosqlite.Connection) -> int:
-    async with db.execute(
-        "SELECT COUNT(*) FROM orders WHERE status = 'approved'"
-    ) as cur:
-        row = await cur.fetchone()
-        return row[0] if row else 0
+async def count_approved(db: DbConn) -> int:
+    row = await db.fetchone("SELECT COUNT(*) FROM orders WHERE status = 'approved'")
+    return row[0] if row else 0
 
 
-async def total_revenue(db: aiosqlite.Connection) -> int:
-    async with db.execute(
+async def total_revenue(db: DbConn) -> int:
+    row = await db.fetchone(
         "SELECT COALESCE(SUM(price), 0) FROM orders WHERE status = 'approved'"
-    ) as cur:
-        row = await cur.fetchone()
-        return row[0] if row else 0
+    )
+    return row[0] if row else 0
