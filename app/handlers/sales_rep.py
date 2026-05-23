@@ -99,18 +99,36 @@ async def cb_rep_charge(callback: CallbackQuery, state: FSMContext, lang: str) -
         rep = await get_rep(db, callback.from_user.id)
         global_price = int(await get_setting(db, "rep_price_per_gb") or "5000")
         currency = await get_setting(db, "currency_label") or "تومان"
+        min_charge = int(await get_setting(db, "rep_min_charge_gb") or "1")
+        max_charge = int(await get_setting(db, "rep_max_charge_gb") or "0")
 
     # Use rep's individual price if set, otherwise fall back to global rate
     price_per_gb = int(rep["price_per_gb"]) if rep["price_per_gb"] is not None else global_price
 
+    # Build human-readable range hint
+    if max_charge > 0 and min_charge > 1:
+        range_hint = f"({min_charge}–{max_charge} GB)"
+    elif max_charge > 0:
+        range_hint = f"(max {max_charge} GB)"
+    elif min_charge > 1:
+        range_hint = f"(min {min_charge} GB)"
+    else:
+        range_hint = "(whole numbers only)"
+
     await state.set_state(SalesRepStates.waiting_for_charge_amount)
-    await state.update_data(price_per_gb=price_per_gb, currency=currency)
+    await state.update_data(
+        price_per_gb=price_per_gb,
+        currency=currency,
+        min_charge=min_charge,
+        max_charge=max_charge,
+    )
     await callback.answer()
     await callback.message.answer(
         t("rep_charge_prompt", lang,
           price=f"{price_per_gb:,}",
           currency=currency,
-          balance=_fmt_gb(rep["gb_balance"])),
+          balance=_fmt_gb(rep["gb_balance"]),
+          range_hint=range_hint),
         parse_mode="HTML",
     )
 
@@ -133,6 +151,19 @@ async def handle_charge_amount(message: Message, state: FSMContext, lang: str) -
     data = await state.get_data()
     price_per_gb: int = data["price_per_gb"]
     currency: str = data["currency"]
+    min_charge: int = data.get("min_charge", 1)
+    max_charge: int = data.get("max_charge", 0)
+
+    if gb < min_charge:
+        await message.answer(
+            t("rep_charge_amount_too_low", lang, min=min_charge), parse_mode="HTML"
+        )
+        return
+    if max_charge > 0 and gb > max_charge:
+        await message.answer(
+            t("rep_charge_amount_too_high", lang, max=max_charge), parse_mode="HTML"
+        )
+        return
     total_price = gb * price_per_gb
 
     async with get_db() as db:

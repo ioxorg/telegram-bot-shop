@@ -188,8 +188,11 @@ def admin_rep_settings_keyboard(ps: dict) -> InlineKeyboardMarkup:
     duration = ps.get("rep_config_duration_days") or "30"
     threshold = ps.get("rep_cashback_threshold_gb") or "40"
     percent = ps.get("rep_cashback_percent") or "5"
-    min_gb = ps.get("rep_min_config_gb") or "5"
-    max_gb = ps.get("rep_max_config_gb") or "30"
+    min_cfg = ps.get("rep_min_config_gb") or "5"
+    max_cfg = ps.get("rep_max_config_gb") or "30"
+    min_charge = ps.get("rep_min_charge_gb") or "1"
+    max_charge_raw = ps.get("rep_max_charge_gb") or "0"
+    max_charge_label = f"{max_charge_raw} GB" if int(max_charge_raw) > 0 else "unlimited"
     currency = ps.get("currency_label") or "—"
     card = ps.get("rep_card_number") or "—"
     bank = ps.get("rep_bank_name") or "—"
@@ -209,8 +212,17 @@ def admin_rep_settings_keyboard(ps: dict) -> InlineKeyboardMarkup:
             callback_data="arep:set:rep_cashback_threshold_gb",
         )],
         [InlineKeyboardButton(
-            text=f"📦 Config GB Range: {min_gb}–{max_gb} GB",
+            text=f"📦 Config Range: {min_cfg}–{max_cfg} GB",
             callback_data="arep:set:rep_min_config_gb",
+        )],
+        # ── Charge transaction limits ──
+        [InlineKeyboardButton(
+            text=f"⬇️ Min Charge: {min_charge} GB",
+            callback_data="arep:set:rep_min_charge_gb",
+        )],
+        [InlineKeyboardButton(
+            text=f"⬆️ Max Charge: {max_charge_label}",
+            callback_data="arep:set:rep_max_charge_gb",
         )],
         # ── Rep-only card payment ──
         [InlineKeyboardButton(
