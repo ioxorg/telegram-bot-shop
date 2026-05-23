@@ -30,3 +30,17 @@ class VerificationStates(StatesGroup):
 
 class AdminForceJoinStates(StatesGroup):
     waiting_for_channel = State()
+
+
+class SalesRepStates(StatesGroup):
+    waiting_for_charge_amount = State()
+    waiting_for_charge_receipt = State()
+    waiting_for_config_name = State()
+    waiting_for_config_gb = State()
+
+
+class AdminRepStates(StatesGroup):
+    waiting_for_rep_telegram_id = State()
+    awaiting_charge_reject_reason = State()
+    editing_rep_setting = State()
+    setting_rep_custom_price = State()
