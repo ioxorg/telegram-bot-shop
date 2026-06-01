@@ -117,18 +117,6 @@ async def check_username_available(config_name: str) -> bool:
         raise PasarGuardError(f"Cannot reach PasarGuard panel: {exc}") from exc
 
 
-async def _fetch_inbounds(client: httpx.AsyncClient) -> dict[str, list[str]]:
-    data = await _authorized_get(client, "/api/inbounds")
-    result: dict[str, list[str]] = {}
-    for proto, entries in data.items():
-        tags = [e["tag"] for e in entries if "tag" in e]
-        if tags:
-            result[proto] = tags
-    if not result:
-        raise PasarGuardError("Panel returned no configured inbounds")
-    logger.debug("Fetched inbounds from panel: %s", list(result.keys()))
-    return result
-
 
 async def create_subscription(
     telegram_id: int,
@@ -159,12 +147,8 @@ async def create_subscription(
                     "Ask the user to choose a different config name."
                 )
 
-            inbounds = await _fetch_inbounds(client)
-
             payload: dict = {
                 "username": username,
-                "proxies": {proto: {} for proto in inbounds},
-                "inbounds": inbounds,
                 "expire": expire_ts,
                 "data_limit": data_limit_bytes,
                 "data_limit_reset_strategy": "no_reset",
