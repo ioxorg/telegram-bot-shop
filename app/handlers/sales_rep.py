@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from app.db import get_db
 from app.i18n import t
 from app.keyboards import rep_back_keyboard, rep_panel_keyboard
-from app.marzban import MarzbanError, check_username_available, create_subscription, validate_config_name
+from app.panel import PanelError, check_username_available, create_subscription, validate_config_name
 from app.repo.bot_settings import get_setting
 from app.repo.sales_reps import (
     create_charge,
@@ -319,7 +319,7 @@ async def handle_rep_config_name(message: Message, state: FSMContext, lang: str)
 
     try:
         available = await check_username_available(name)
-    except MarzbanError as exc:
+    except PanelError as exc:
         await message.answer(f"⚠️ Error checking name: {exc}")
         return
 
@@ -390,8 +390,8 @@ async def handle_rep_config_gb(message: Message, state: FSMContext, lang: str) -
             data_limit_gb=gb,
             config_name=config_name,
         )
-    except MarzbanError as exc:
-        logger.error("Marzban error creating rep config for %d: %s", message.from_user.id, exc)
+    except PanelError as exc:
+        logger.error("Panel error creating rep config for %d: %s", message.from_user.id, exc)
         await state.clear()
         try:
             await processing_msg.delete()

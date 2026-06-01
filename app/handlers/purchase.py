@@ -12,7 +12,7 @@ from aiogram.types import CallbackQuery, LabeledPrice, Message, PreCheckoutQuery
 from app.db import get_db
 from app.i18n import t
 from app.keyboards import admin_review, nowpay_keyboard, payment_method_keyboard
-from app.marzban import MarzbanError, check_username_available, create_subscription, validate_config_name
+from app.panel import PanelError, check_username_available, create_subscription, validate_config_name
 from app.nowpayments import NowPaymentsError, SUCCESS_STATUSES, FAILED_STATUSES, create_invoice, get_payments_for_invoice
 from app.repo.bot_settings import get_active_payment_methods, get_setting
 from app.repo.orders import (
@@ -171,7 +171,7 @@ async def handle_config_name(message: Message, state: FSMContext, lang: str) -> 
 
     try:
         available = await check_username_available(name)
-    except MarzbanError:
+    except PanelError:
         available = True
 
     if not available:
@@ -336,14 +336,14 @@ async def _approve_nowpayments_order(
             data_limit_gb=plan["data_limit_gb"],
             config_name=order["config_name"] or str(order["telegram_id"]),
         )
-    except MarzbanError as exc:
-        logger.error("Marzban error after NOWPayments confirm, order %d: %s", order_id, exc)
+    except PanelError as exc:
+        logger.error("Panel error after NOWPayments confirm, order %d: %s", order_id, exc)
         async with get_db() as db:
             await fail_order(db, order_id, str(exc))
         await message.answer(t("nowpay_marzban_fail", lang))
         await bot.send_message(
             settings.admin_telegram_id,
-            f"⚠️ NOWPayments confirmed but Marzban failed for order #{order_id}\n"
+            f"⚠️ NOWPayments confirmed but panel failed for order #{order_id}\n"
             f"Payment ID: {payment_id}\nUser: {order['telegram_id']}\nError: {exc}",
         )
         return
@@ -369,7 +369,7 @@ async def _approve_nowpayments_order(
         f"✅ Crypto order #{order_id} auto-approved (NOWPayments {payment_id})\n"
         f"User: {order['telegram_id']} — {order['title']}",
     )
-    logger.info("NOWPayments order %d auto-approved — Marzban user %s", order_id, marzban_username)
+    logger.info("NOWPayments order %d auto-approved — panel user %s", order_id, marzban_username)
 
 
 # ── Receipt photo (card) ──────────────────────────────────────────────────────
@@ -455,8 +455,8 @@ async def handle_successful_payment(message: Message, bot: Bot) -> None:
             data_limit_gb=plan["data_limit_gb"],
             config_name=order["config_name"] or str(order["telegram_id"]),
         )
-    except MarzbanError as exc:
-        logger.error("Marzban error on Stars order %d: %s", order_id, exc)
+    except PanelError as exc:
+        logger.error("Panel error on Stars order %d: %s", order_id, exc)
         async with get_db() as db:
             await fail_order(db, order_id, str(exc))
         await message.answer(
@@ -465,7 +465,7 @@ async def handle_successful_payment(message: Message, bot: Bot) -> None:
         )
         await bot.send_message(
             settings.admin_telegram_id,
-            f"⚠️ Stars payment received but Marzban failed for order #{order_id}: {exc}\n"
+            f"⚠️ Stars payment received but panel failed for order #{order_id}: {exc}\n"
             f"User: {order['telegram_id']}",
         )
         return
@@ -486,4 +486,4 @@ async def handle_successful_payment(message: Message, bot: Bot) -> None:
           url=subscription_url),
         parse_mode="HTML",
     )
-    logger.info("Stars order %d approved — Marzban user %s", order_id, marzban_username)
+    logger.info("Stars order %d approved — panel user %s", order_id, marzban_username)

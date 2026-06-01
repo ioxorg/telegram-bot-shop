@@ -11,7 +11,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from app.db import get_db
 from app.i18n import t
 from app.keyboards import admin_payment_settings, admin_plan_actions, admin_plans_list, admin_review
-from app.marzban import MarzbanError, create_subscription
+from app.panel import PanelError, create_subscription
 from app.repo.orders import (
     approve_order,
     count_approved,
@@ -121,12 +121,12 @@ async def cb_approve(callback: CallbackQuery, bot: Bot) -> None:
             data_limit_gb=plan["data_limit_gb"],
             config_name=order["config_name"] or str(order["telegram_id"]),
         )
-    except MarzbanError as exc:
-        logger.error("Marzban error on order %d: %s", order_id, exc)
+    except PanelError as exc:
+        logger.error("Panel error on order %d: %s", order_id, exc)
         async with get_db() as db:
             await fail_order(db, order_id, str(exc))
         await callback.message.edit_caption(
-            (callback.message.caption or "") + "\n\n⚠️ Marzban error — see /failed_orders"
+            (callback.message.caption or "") + "\n\n⚠️ Panel error — see /failed_orders"
         )
         await bot.send_message(
             settings.admin_telegram_id,
@@ -156,7 +156,7 @@ async def cb_approve(callback: CallbackQuery, bot: Bot) -> None:
                url=subscription_url),
         parse_mode="HTML",
     )
-    logger.info("Order %d approved — Marzban user %s created", order_id, marzban_username)
+    logger.info("Order %d approved — panel user %s created", order_id, marzban_username)
 
 
 # ── Reject ───────────────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ async def _show_admin_panel(target: Message | CallbackQuery) -> None:
         "<b>Admin panel</b>\n\n"
         "/pending — list pending receipts\n"
         "/stats — sales statistics\n"
-        "/failed_orders — failed Marzban orders\n"
+        "/failed_orders — failed panel orders\n"
         "/plans — manage plans\n"
         "/payment — payment settings"
     )
