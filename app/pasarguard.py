@@ -153,11 +153,11 @@ async def create_subscription(
                 "data_limit": data_limit_bytes,
                 "data_limit_reset_strategy": "no_reset",
                 "status": "active",
+                "group_ids": [
+                    9
+                ]
             }
-
-            if settings.pasarguard_group:
-                payload["group"] = settings.pasarguard_group
-
+            
             result = await _authorized_post(client, "/api/user", payload)
     except PasarGuardError:
         raise
