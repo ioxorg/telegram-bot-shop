@@ -154,10 +154,10 @@ async def create_subscription(
                 "data_limit_reset_strategy": "no_reset",
                 "status": "active",
                 "group_ids": [
-                    9
+                    8
                 ]
             }
-            
+
             result = await _authorized_post(client, "/api/user", payload)
     except PasarGuardError:
         raise
