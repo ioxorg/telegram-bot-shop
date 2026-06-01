@@ -26,7 +26,7 @@ class Settings:
     pasarguard_base_url: str
     pasarguard_username: str
     pasarguard_password: str
-    pasarguard_group: str  # group name assigned to every created user; empty = omit field
+    pasarguard_group_id: int | None  # group ID assigned to every created user; None = omit field
 
     # Payment — used only for the one-time DB seed on first run.
     # After that, values live in the bot_settings DB table.
@@ -92,7 +92,7 @@ def load_settings() -> Settings:
         pasarguard_base_url=pasarguard_base_url,
         pasarguard_username=pasarguard_username,
         pasarguard_password=pasarguard_password,
-        pasarguard_group=os.getenv("PASARGUARD_GROUP", ""),
+        pasarguard_group_id=int(v) if (v := os.getenv("PASARGUARD_GROUP_ID", "").strip()) else None,
         initial_card_number=os.getenv("CARD_NUMBER", ""),
         initial_card_holder_name=os.getenv("CARD_HOLDER_NAME", ""),
         initial_currency_label=os.getenv("CURRENCY_LABEL", "تومان"),

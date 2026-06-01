@@ -131,12 +131,12 @@ async def create_subscription(
     data_limit_bytes = data_limit_gb * 1024**3 if data_limit_gb > 0 else 0
 
     logger.info(
-        "Creating PasarGuard user %s for tg:%d (duration=%d days, data_limit=%d GB, group=%r)",
+        "Creating PasarGuard user %s for tg:%d (duration=%d days, data_limit=%d GB, group_id=%s)",
         username,
         telegram_id,
         duration_days,
         data_limit_gb,
-        settings.pasarguard_group or "(none)",
+        settings.pasarguard_group_id if settings.pasarguard_group_id is not None else "(none)",
     )
 
     try:
@@ -153,10 +153,10 @@ async def create_subscription(
                 "data_limit": data_limit_bytes,
                 "data_limit_reset_strategy": "no_reset",
                 "status": "active",
-                "group_ids": [
-                    8
-                ]
             }
+
+            if settings.pasarguard_group_id is not None:
+                payload["group_ids"] = [settings.pasarguard_group_id]
 
             result = await _authorized_post(client, "/api/user", payload)
     except PasarGuardError:
