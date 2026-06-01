@@ -14,10 +14,19 @@ class Settings:
     bot_token: str
     admin_telegram_id: int
 
+    # Panel selection — "marzban" (default) or "pasarguard"
+    panel_type: str
+
     # Marzban
     marzban_base_url: str
     marzban_username: str
     marzban_password: str
+
+    # PasarGuard
+    pasarguard_base_url: str
+    pasarguard_username: str
+    pasarguard_password: str
+    pasarguard_group: str  # group name assigned to every created user; empty = omit field
 
     # Payment — used only for the one-time DB seed on first run.
     # After that, values live in the bot_settings DB table.
@@ -43,7 +52,6 @@ class Settings:
     # SQLite — only used when db_backend == "sqlite"
     db_path: str
     # PostgreSQL DSN — only used when db_backend == "postgres"
-    # e.g. postgresql://user:pass@localhost:5432/shopdb
     database_url: str
 
     log_level: str
@@ -57,12 +65,34 @@ def _require(name: str) -> str:
 
 
 def load_settings() -> Settings:
+    panel_type = os.getenv("PANEL_TYPE", "marzban").lower()
+
+    if panel_type == "pasarguard":
+        marzban_base_url = os.getenv("MARZBAN_BASE_URL", "").rstrip("/")
+        marzban_username = os.getenv("MARZBAN_USERNAME", "")
+        marzban_password = os.getenv("MARZBAN_PASSWORD", "")
+        pasarguard_base_url = _require("PASARGUARD_BASE_URL").rstrip("/")
+        pasarguard_username = _require("PASARGUARD_USERNAME")
+        pasarguard_password = _require("PASARGUARD_PASSWORD")
+    else:
+        marzban_base_url = _require("MARZBAN_BASE_URL").rstrip("/")
+        marzban_username = _require("MARZBAN_USERNAME")
+        marzban_password = _require("MARZBAN_PASSWORD")
+        pasarguard_base_url = os.getenv("PASARGUARD_BASE_URL", "").rstrip("/")
+        pasarguard_username = os.getenv("PASARGUARD_USERNAME", "")
+        pasarguard_password = os.getenv("PASARGUARD_PASSWORD", "")
+
     return Settings(
         bot_token=_require("BOT_TOKEN"),
         admin_telegram_id=int(_require("ADMIN_TELEGRAM_ID")),
-        marzban_base_url=_require("MARZBAN_BASE_URL").rstrip("/"),
-        marzban_username=_require("MARZBAN_USERNAME"),
-        marzban_password=_require("MARZBAN_PASSWORD"),
+        panel_type=panel_type,
+        marzban_base_url=marzban_base_url,
+        marzban_username=marzban_username,
+        marzban_password=marzban_password,
+        pasarguard_base_url=pasarguard_base_url,
+        pasarguard_username=pasarguard_username,
+        pasarguard_password=pasarguard_password,
+        pasarguard_group=os.getenv("PASARGUARD_GROUP", ""),
         initial_card_number=os.getenv("CARD_NUMBER", ""),
         initial_card_holder_name=os.getenv("CARD_HOLDER_NAME", ""),
         initial_currency_label=os.getenv("CURRENCY_LABEL", "تومان"),

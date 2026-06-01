@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery
 
 from app.db import get_db
 from app.i18n import t
-from app.marzban import MarzbanError, fetch_individual_links
+from app.panel import PanelError, fetch_individual_links
 from app.repo.orders import get_order
 
 router = Router()
@@ -35,7 +35,7 @@ async def cb_get_configs(callback: CallbackQuery, lang: str) -> None:
 
     try:
         links = await fetch_individual_links(order["marzban_username"], config_name)
-    except MarzbanError as exc:
+    except PanelError as exc:
         logger.error("Failed to fetch configs for order %d: %s", order_id, exc)
         await wait_msg.delete()
         await callback.message.answer(t("configs_error", lang))
