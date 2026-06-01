@@ -6,6 +6,8 @@ FROM ${UV_IMAGE} AS uv
 
 FROM ${PYTHON_IMAGE}
 ARG UV_INDEX_URL=https://pypi.org/simple/
+ARG VERSION=dev
+ENV APP_VERSION=$VERSION
 
 COPY --from=uv /uv /usr/local/bin/uv
 

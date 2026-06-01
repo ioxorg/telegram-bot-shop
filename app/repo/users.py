@@ -59,3 +59,8 @@ async def set_phone_number(db: DbConn, telegram_id: int, phone: str) -> None:
 async def count_users(db: DbConn) -> int:
     row = await db.fetchone("SELECT COUNT(*) FROM users")
     return row[0] if row else 0
+
+
+async def get_all_telegram_ids(db: DbConn) -> list[int]:
+    rows = await db.fetchall("SELECT telegram_id FROM users")
+    return [row[0] for row in rows]

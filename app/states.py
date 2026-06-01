@@ -44,3 +44,8 @@ class AdminRepStates(StatesGroup):
     awaiting_charge_reject_reason = State()
     editing_rep_setting = State()
     setting_rep_custom_price = State()
+
+
+class BroadcastStates(StatesGroup):
+    waiting_for_message = State()
+    confirming = State()

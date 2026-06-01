@@ -15,7 +15,8 @@ from aiogram.types import (
 )
 
 from app.db import get_db, init_db
-from app.handlers import admin, admin_rep, config, my_subs, plans, purchase, sales_rep, start, static, verification
+from app.handlers import admin, admin_rep, broadcast, config, my_subs, plans, purchase, sales_rep, start, static, verification
+from app.version import announce_if_new
 from app.middleware import ForceJoinMiddleware, LanguageMiddleware
 from app.repo.bot_settings import seed_payment_settings
 from configs.configs import settings
@@ -39,17 +40,19 @@ _USER_COMMANDS_FA = [
 _ADMIN_COMMANDS = _USER_COMMANDS + [
     BotCommand(command="pending", description="Pending orders awaiting review"),
     BotCommand(command="stats", description="Sales statistics"),
-    BotCommand(command="failed_orders", description="Failed Marzban orders"),
+    BotCommand(command="failed_orders", description="Failed panel orders"),
     BotCommand(command="plans", description="Manage plans"),
     BotCommand(command="payment", description="Payment settings"),
+    BotCommand(command="broadcast", description="Broadcast a message to all users"),
 ]
 
 _ADMIN_COMMANDS_FA = _USER_COMMANDS_FA + [
     BotCommand(command="pending", description="سفارش‌های در انتظار بررسی"),
     BotCommand(command="stats", description="آمار فروش"),
-    BotCommand(command="failed_orders", description="سفارش‌های ناموفق Marzban"),
+    BotCommand(command="failed_orders", description="سفارش‌های ناموفق پنل"),
     BotCommand(command="plans", description="مدیریت پلن‌ها"),
     BotCommand(command="payment", description="تنظیمات پرداخت"),
+    BotCommand(command="broadcast", description="ارسال پیام به همه کاربران"),
 ]
 
 
@@ -106,10 +109,14 @@ async def main() -> None:
     dp.include_router(sales_rep.router)
     dp.include_router(config.router)
     dp.include_router(static.router)
+    dp.include_router(broadcast.router)
     dp.include_router(admin.router)
     dp.include_router(admin_rep.router)
 
     await _setup_menu(bot)
+
+    async with get_db() as db:
+        await announce_if_new(bot, settings.admin_telegram_id, db)
 
     logger.info("Bot polling started")
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

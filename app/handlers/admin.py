@@ -348,6 +348,7 @@ async def _show_admin_panel(target: Message | CallbackQuery) -> None:
         [InlineKeyboardButton(text="📦 Manage Plans", callback_data="aplan:list")],
         [InlineKeyboardButton(text="💳 Payment Settings", callback_data="apay:show")],
         [InlineKeyboardButton(text="👥 Sales Reps", callback_data="arep:list")],
+        [InlineKeyboardButton(text="📣 Broadcast", callback_data="admin:broadcast")],
         [InlineKeyboardButton(text=verify_label, callback_data="admin:toggle_verify")],
         [InlineKeyboardButton(text=f"📢 {force_join_label}", callback_data="admin:force_join")],
         [InlineKeyboardButton(text="⬅️ Back", callback_data="menu:back")],
@@ -373,6 +374,22 @@ async def cb_admin_panel(callback: CallbackQuery) -> None:
         await callback.answer("Access denied.", show_alert=True)
         return
     await _show_admin_panel(callback)
+
+
+@router.callback_query(lambda c: c.data == "admin:broadcast")
+async def cb_admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("Access denied.", show_alert=True)
+        return
+    from app.states import BroadcastStates
+    await state.set_state(BroadcastStates.waiting_for_message)
+    await callback.answer()
+    await callback.message.answer(
+        "📡 <b>Broadcast</b>\n\n"
+        "Send or forward the message you want to broadcast to all users.\n\n"
+        "Send /cancel to abort.",
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(lambda c: c.data == "admin:toggle_verify")
