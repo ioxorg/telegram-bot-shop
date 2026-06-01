@@ -1,5 +1,6 @@
 services:
   bot:
+    image: ghcr.io/ioxorg/telegram-bot-shop:edge
     build: .
     restart: unless-stopped
     env_file: .env
